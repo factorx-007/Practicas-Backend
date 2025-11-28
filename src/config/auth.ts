@@ -25,7 +25,7 @@ export const authConfig = {
     maxAge: 24 * 60 * 60 * 1000, // 24 horas
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: 'lax' as const
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' as const
   },
 
   // OAuth Configuration
