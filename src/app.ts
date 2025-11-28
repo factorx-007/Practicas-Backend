@@ -24,7 +24,7 @@ const corsOptions = {
     process.env.FRONTEND_URL || 'http://localhost:3000',
     'http://localhost:3000',
     'http://localhost:3001',
-    'https://practicas-frontend-muqn4ppcq-factorx-007s-projects.vercel.app'
+    'https://practicas-frontend.vercel.app/'
   ],
   credentials: true,
   optionsSuccessStatus: 200,
