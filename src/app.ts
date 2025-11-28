@@ -23,7 +23,8 @@ const corsOptions = {
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
     'http://localhost:3000',
-    'http://localhost:3001'
+    'http://localhost:3001',
+    'https://practicas-frontend-muqn4ppcq-factorx-007s-projects.vercel.app/'
   ],
   credentials: true,
   optionsSuccessStatus: 200,
@@ -194,8 +195,8 @@ app.use((error: any, req: Request, res: Response, next: NextFunction) => {
 
   // Error interno del servidor
   const statusCode = error.statusCode || 500;
-  const message = process.env.NODE_ENV === 'production' 
-    ? 'Error interno del servidor' 
+  const message = process.env.NODE_ENV === 'production'
+    ? 'Error interno del servidor'
     : error.message;
 
   ApiResponseHandler.error(res, message, statusCode);
