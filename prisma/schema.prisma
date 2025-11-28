@@ -1,0 +1,1017 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===============================
+// MODELOS PRINCIPALES
+// ===============================
+
+model Usuario {
+  id             String   @id @default(cuid())
+  nombre         String
+  apellido       String
+  email          String   @unique
+  password       String?  // Null para usuarios que se registran con Google
+  googleId       String?  @unique // ID único de Google OAuth
+  avatar         String?  // URL del avatar
+  rol            Rol
+  activo         Boolean  @default(true)
+  emailVerificado Boolean @default(false)
+  perfilCompleto Boolean  @default(false) // Si el usuario completó su perfil específico
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relaciones
+  estudiante    Estudiante?
+  empresa       Empresa?
+  institucion   Institucion?
+  posts         Post[]
+  comentarios   Comentario[]
+  reacciones    Reaccion[]
+  notificaciones Notificacion[]
+  seguidos      Follow[] @relation("Seguidor")
+  seguidores    Follow[] @relation("Seguido")
+  chatsEnviados Chat[] @relation("Emisor")
+  chatsRecibidos Chat[] @relation("Receptor")
+
+  @@map("usuarios")
+}
+
+model Estudiante {
+  id             String   @id @default(cuid())
+  usuarioId      String   @unique
+  cv             String?  // URL del CV
+  carrera        String
+  universidad    String?
+  anio_ingreso   Int?
+  anio_egreso    Int?     // Solo para egresados
+  telefono       String?
+  habilidades    String[] // LEGACY: Se migrará a EstudianteHabilidad
+  experiencia    Json?    // LEGACY: Se migrará a ExperienciaLaboral
+  portafolio     String?  // URL del portafolio
+  linkedin       String?
+  github         String?
+  ubicacion      String?
+  tipo           TipoEstudiante
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relaciones
+  usuario       Usuario        @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  postulaciones Postulacion[]
+
+  // --- NUEVAS RELACIONES (ESTRUCTURA HÍBRIDA) ---
+  perfilProfesional   PerfilProfesional?
+  experiencias        ExperienciaLaboral[]
+  educacion           EducacionAcademica[]
+  habilidadesNuevas   EstudianteHabilidad[]
+  proyectos           Proyecto[]
+  certificaciones     Certificacion[]
+  idiomas             EstudianteIdioma[]
+  documentos          DocumentoEstudiante[]
+  reconocimientos     Reconocimiento[]
+  referencias         ReferenciaProfesional[]
+  // ---------------------------------------------
+  @@map("estudiantes")
+}
+
+model Empresa {
+  id             String   @id @default(cuid())
+  usuarioId      String   @unique
+  ruc            String   @unique
+  nombre_empresa String
+  rubro          String
+  descripcion    String?
+  direccion      String?
+  telefono       String?
+  website        String?
+  logo_url       String?  // URL del logo
+  verificada     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relaciones
+
+  usuario   Usuario    @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  ofertas   Oferta[]
+  // --- NUEVAS RELACIONES (ESTRUCTURA HÍBRIDA) ---
+
+  perfilEmpresa PerfilEmpresa?
+
+  // ---------------------------------------------
+  @@map("empresas")
+}
+
+model Institucion {
+  id        String   @id @default(cuid())
+  usuarioId String   @unique
+  nombre    String
+  tipo      String   // Universidad, Instituto, etc.
+  codigo    String   @unique // Código institucional
+  direccion String?
+  telefono  String?
+  website   String?
+  logo_url  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("instituciones")
+}
+
+// ===============================
+// SISTEMA DE OFERTAS
+// ===============================
+
+model Oferta {
+  id            String   @id @default(cuid())
+  titulo        String
+  descripcion   String?
+  requisitos    String[] // Array de requisitos
+  duracion      String?
+  estado        EstadoOferta @default(PUBLICADA)
+  ubicacion     String?
+  modalidad     ModalidadTrabajo @default(TIEMPO_COMPLETO)
+  salario_min   Float?
+  salario_max   Float?
+  moneda        String   @default("PEN")
+  tipoEmpleo    String?
+  nivelEducacion String?
+  experiencia   String?
+  requiereCV    Boolean  @default(true)
+  requiereCarta Boolean  @default(false)
+  fecha_limite  DateTime?
+  empresaId     String
+  vistas        Int      @default(0)
+  verificada    Boolean  @default(false)
+  destacada     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relaciones
+  empresa           Empresa             @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  postulaciones     Postulacion[]
+  preguntas         PreguntaOferta[]
+
+  @@map("ofertas")
+}
+
+model Postulacion {
+  id           String           @id @default(cuid())
+  mensaje      String?
+  estado       EstadoPostulacion @default(PENDIENTE)
+  estudianteId String
+  ofertaId     String
+  fechaEntrevista DateTime?
+  cv_url         String?  // URL del CV específico para esta postulación
+  comentarioEmpresa String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  // Relaciones
+  estudiante Estudiante             @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  oferta     Oferta                 @relation(fields: [ofertaId], references: [id], onDelete: Cascade)
+  respuestas RespuestaPostulacion[]
+
+  @@unique([estudianteId, ofertaId])
+  @@map("postulaciones")
+}
+
+// ===============================
+// SISTEMA DE PREGUNTAS Y RESPUESTAS
+// ===============================
+
+model PreguntaOferta {
+  id         String      @id @default(cuid())
+  ofertaId   String
+  pregunta   String
+  tipo       TipoPregunta @default(TEXT)
+  opciones   Json?       // Array de opciones para tipo select
+  requerida  Boolean     @default(false)
+  orden      Int         @default(1)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  // Relaciones
+  oferta     Oferta                 @relation(fields: [ofertaId], references: [id], onDelete: Cascade)
+  respuestas RespuestaPostulacion[]
+
+  @@map("preguntas_ofertas")
+}
+
+model RespuestaPostulacion {
+  id               String   @id @default(cuid())
+  postulacionId    String
+  preguntaOfertaId String
+  respuesta        String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relaciones
+  postulacion    Postulacion    @relation(fields: [postulacionId], references: [id], onDelete: Cascade)
+  preguntaOferta PreguntaOferta @relation(fields: [preguntaOfertaId], references: [id], onDelete: Cascade)
+
+  @@unique([postulacionId, preguntaOfertaId])
+  @@map("respuestas_postulaciones")
+}
+
+// ===============================
+// SISTEMA SOCIAL
+// ===============================
+
+model Post {
+  id        String   @id @default(cuid())
+  contenido String
+  autorId   String
+  imagenes  String[] // URLs de imágenes
+  videos    String[] // URLs de videos
+  privado   Boolean  @default(false)
+  oculto    Boolean  @default(false)
+  reportado Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  autor       Usuario      @relation(fields: [autorId], references: [id], onDelete: Cascade)
+  comentarios Comentario[]
+  reacciones  Reaccion[]
+
+  @@map("posts")
+}
+
+model Comentario {
+  id        String   @id @default(cuid())
+  postId    String
+  autorId   String
+  contenido String
+  parentId  String?  // Para comentarios anidados
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  post       Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  autor      Usuario      @relation(fields: [autorId], references: [id], onDelete: Cascade)
+  padre      Comentario?  @relation("ComentarioRespuestas", fields: [parentId], references: [id], onDelete: Cascade)
+  respuestas Comentario[] @relation("ComentarioRespuestas")
+  reacciones Reaccion[]
+
+  @@map("comentarios")
+}
+
+model Reaccion {
+  id           String       @id @default(cuid())
+  tipo         TipoReaccion
+  usuarioId    String
+  postId       String?
+  comentarioId String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // Relaciones
+  usuario    Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  post       Post?       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comentario Comentario? @relation(fields: [comentarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, postId])
+  @@unique([usuarioId, comentarioId])
+  @@map("reacciones")
+}
+
+model Follow {
+  id         String   @id @default(cuid())
+  seguidorId String
+  seguidoId  String
+  createdAt  DateTime @default(now())
+
+  // Relaciones
+  seguidor Usuario @relation("Seguidor", fields: [seguidorId], references: [id], onDelete: Cascade)
+  seguido  Usuario @relation("Seguido", fields: [seguidoId], references: [id], onDelete: Cascade)
+
+  @@unique([seguidorId, seguidoId])
+  @@map("follows")
+}
+
+// ===============================
+// SISTEMA DE CHAT Y NOTIFICACIONES
+// ===============================
+
+model Chat {
+  id        String   @id @default(cuid())
+  emisorId  String
+  receptorId String
+  mensaje   String
+  leido     Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  emisor   Usuario @relation("Emisor", fields: [emisorId], references: [id], onDelete: Cascade)
+  receptor Usuario @relation("Receptor", fields: [receptorId], references: [id], onDelete: Cascade)
+  @@map("chats")
+}
+
+model Notificacion {
+  id        String          @id @default(cuid())
+  usuarioId String
+  tipo      TipoNotificacion
+  titulo    String
+  mensaje   String
+  leida     Boolean         @default(false)
+  data      Json?           // Datos adicionales de la notificación
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  // Relaciones
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  @@map("notificaciones")
+}
+
+// ===============================
+
+// ENUMS
+
+// ===============================
+
+enum Rol {
+  ESTUDIANTE  @map("estudiante")
+  EMPRESA     @map("empresa")
+  INSTITUCION @map("institucion")
+  ADMIN       @map("admin")
+}
+
+enum TipoEstudiante {
+  ESTUDIANTE @map("estudiante")
+  EGRESADO   @map("egresado")
+}
+
+enum EstadoPostulacion {
+  PENDIENTE   @map("pendiente")
+  EN_REVISION @map("en_revision")
+  ACEPTADA    @map("aceptada")
+  RECHAZADA   @map("rechazada")
+  ENTREVISTA  @map("entrevista")
+}
+
+enum TipoPregunta {
+  TEXT     @map("text")
+  NUMBER   @map("number")
+  SELECT   @map("select")
+  TEXTAREA @map("textarea")
+  EMAIL    @map("email")
+  URL      @map("url")
+}
+
+enum TipoReaccion {
+  LIKE    @map("like")
+  LOVE    @map("love")
+  HAHA    @map("haha")
+  WOW     @map("wow")
+  SAD     @map("sad")
+  ANGRY   @map("angry")
+}
+
+enum EstadoOferta {
+  PUBLICADA @map("publicada")
+  CERRADA   @map("cerrada")
+  BORRADOR  @map("borrador")
+  PAUSADA   @map("pausada")
+}
+
+enum ModalidadTrabajo {
+  TIEMPO_COMPLETO @map("tiempo_completo")
+  MEDIO_TIEMPO    @map("medio_tiempo")
+  PRACTICA        @map("practica")
+  FREELANCE       @map("freelance")
+  REMOTO          @map("remoto")
+  HIBRIDO         @map("hibrido")
+  PRESENCIAL      @map("presencial")
+}
+
+enum TipoNotificacion {
+  NUEVA_OFERTA      @map("nueva_oferta")
+  POSTULACION       @map("postulacion")
+  MENSAJE           @map("mensaje")
+  REACCION          @map("reaccion")
+  COMENTARIO        @map("comentario")
+  SEGUIMIENTO       @map("seguimiento")
+  ACTUALIZACION_PERFIL @map("actualizacion_perfil")
+  SISTEMA           @map("sistema")
+}
+
+// ===================================================
+
+// NUEVOS ENUMS (ESTRUCTURA HÍBRIDA)
+
+// ===================================================
+
+enum DisponibilidadTipo {
+  INMEDIATA
+  DOS_SEMANAS
+  UN_MES
+  NEGOCIABLE
+}
+
+enum TipoInstitucion {
+  INSTITUTO
+  UNIVERSIDAD
+  CENTRO_TECNICO
+  ESCUELA_PROFESIONAL
+}
+
+enum NivelAcademico {
+  BACHILLERATO
+  TECNICO
+  PREGRADO
+  LICENCIATURA
+  EGRESADO
+  BACHILLER
+  TITULADO
+  POSTGRADO
+  MAESTRIA
+  DOCTORADO
+  SECUNDARIA
+  
+}
+
+enum SistemaNotas {
+  VIGESIMAL
+  ALFABETICO
+  NUMERICO_100
+  GPA
+  OTRO
+}
+
+enum NivelDominio {
+  BASICO
+  INTERMEDIO
+  AVANZADO
+  EXPERTO
+}
+
+enum TipoProyecto {
+  DESARROLLO_SOFTWARE
+  DISEÑO
+  INGENIERIA
+  INVESTIGACION
+  CONSTRUCCION
+  TOPOGRAFIA
+  AUTOMATIZACION
+  OTRO
+}
+
+enum EstadoProyecto {
+  COMPLETADO
+  EN_DESARROLLO
+  PAUSADO
+  CANCELADO
+}
+
+enum ContextoProyecto {
+  ACADEMICO
+  PERSONAL
+  FREELANCE
+  EMPRESA
+  COMPETENCIA
+}
+
+enum TipoCertificacion {
+  PROFESIONAL
+  CURSO_ONLINE
+  CERTIFICADO_ACADEMICO
+  LICENCIA
+  CAPACITACION
+  TECNICA
+  IDIOMAS
+  CURSO
+  OTRO
+}
+
+enum NivelIdioma {
+  A1_BASICO
+  A2_ELEMENTAL
+  B1_INTERMEDIO
+  B2_INTERMEDIO_ALTO
+  C1_AVANZADO
+  C2_MAESTRIA
+  NATIVO
+}
+
+enum TipoDocumento {
+  CV
+  CARTA_PRESENTACION
+  CERTIFICADO
+  PORTAFOLIO
+  TRANSCRIPT
+  CARTA_RECOMENDACION
+  OTRO
+}
+
+enum TipoReconocimiento {
+  BECA
+  PREMIO
+  MENCION_HONROSA
+  PUBLICACION
+  PATENTE
+  COMPETENCIA
+  LIDERAZGO
+  VOLUNTARIADO
+}
+
+enum TamanioEmpresa {
+  MICRO
+  PEQUEÑA
+  MEDIANA
+  GRANDE
+  CORPORACION
+}
+
+enum TipoEmpresa {
+  STARTUP
+  PYME
+  CORPORACION
+  MULTINACIONAL
+  ONG
+  GOBIERNO
+  CONSULTORA
+}
+
+enum TipoRelacion {
+  SUPERVISOR
+  PROFESOR
+  CLIENTE
+  COLEGA
+  MENTOR
+}
+
+enum EstadoReferencia {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+}
+
+enum CategoriaHabilidad {
+  LENGUAJE_PROGRAMACION
+  FRAMEWORK_LIBRERIA
+  HERRAMIENTA_SOFTWARE
+  BASE_DATOS
+  CLOUD_DEVOPS
+  DISEÑO_GRAFICO
+  DISEÑO_3D
+  INGENIERIA_CIVIL
+  TOPOGRAFIA
+  AUTOMATIZACION
+  GESTION_PROYECTOS
+  SOFT_SKILL
+  IDIOMA_TECNICO
+  OTRO
+}
+
+enum TipoHabilidad {
+  TECNICA
+  BLANDA
+}
+
+enum CategoriaTecnologia {
+  FRONTEND
+  BACKEND
+  MOBILE
+  BASE_DATOS
+  CLOUD
+  DISEÑO
+  CAD_BIM
+  TOPOGRAFIA
+  GESTION
+  OTRO
+}
+
+enum CategoriaBeneficio {
+  SALUD
+  FINANCIERO
+  DESARROLLO_PROFESIONAL
+  FLEXIBILIDAD
+  BIENESTAR
+  TRANSPORTE
+  ALIMENTACION
+  OTRO
+
+}
+
+
+// ===================================================
+
+// NUEVOS MODELOS (ESTRUCTURA HÍBRIDA)
+
+// ===================================================
+
+// --- SECCIÓN 1: PERFIL PROFESIONAL ---
+model PerfilProfesional {
+  id              String    @id @default(cuid())
+  estudianteId    String    @unique
+  resumen         String    @db.Text
+  objetivo_carrera String?  @db.Text
+  disponibilidad  DisponibilidadTipo @default(INMEDIATA)
+  modalidad_trabajo ModalidadTrabajo[]
+  salario_minimo  Decimal?  @db.Decimal(10, 2)
+  salario_maximo  Decimal?  @db.Decimal(10, 2)
+  moneda          String    @default("PEN")
+  estudiante      Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  @@index([estudianteId])
+}
+
+// --- SECCIÓN 2: EXPERIENCIA LABORAL ---
+
+model ExperienciaLaboral {
+
+  id                String    @id @default(cuid())
+  estudianteId      String
+  cargo             String
+  empresa           String
+  sector_id         String?
+  fecha_inicio      DateTime
+  fecha_fin         DateTime?
+  es_actual         Boolean   @default(false)
+  ubicacion_id      String?
+  modalidad         ModalidadTrabajo
+  descripcion       String?   @db.Text
+  responsabilidades String[] // Simplificado
+  logros            String[] // Simplificado
+  estudiante        Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  sector            CatalogoSector? @relation(fields: [sector_id], references: [id])
+  ubicacion         CatalogoUbicacion? @relation(fields: [ubicacion_id], references: [id])
+  tecnologias       ExperienciaTecnologia[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  @@index([estudianteId])
+  @@index([sector_id])
+}
+
+model ExperienciaTecnologia {
+  id                String    @id @default(cuid())
+  experiencia_id    String
+  tecnologia_id     String
+  experiencia       ExperienciaLaboral @relation(fields: [experiencia_id], references: [id], onDelete: Cascade)
+  tecnologia        CatalogoTecnologia @relation(fields: [tecnologia_id], references: [id])
+  @@unique([experiencia_id, tecnologia_id])
+  @@index([experiencia_id])
+  @@index([tecnologia_id])
+}
+
+// --- SECCIÓN 3: EDUCACIÓN ACADÉMICA ---
+
+model EducacionAcademica {
+  id                String    @id @default(cuid())
+  estudianteId      String
+  institucion       String
+  tipo_institucion  TipoInstitucion
+  titulo            String
+  carrera_id        String?
+  campo_estudio     String?
+  nivel_academico   NivelAcademico
+  fecha_inicio      DateTime
+  fecha_fin         DateTime?
+  en_curso          Boolean   @default(false)
+  promedio          Decimal?  @db.Decimal(4, 2)
+  sistema_notas     SistemaNotas @default(VIGESIMAL)
+  ubicacion_id      String?
+  mencion           String?
+  tesis             String?   @db.Text
+  cursos_destacados Json[] // Simplificado
+  estudiante        Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  carrera           CatalogoCarrera? @relation(fields: [carrera_id], references: [id])
+  ubicacion         CatalogoUbicacion? @relation(fields: [ubicacion_id], references: [id])
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  @@index([estudianteId])
+  @@index([carrera_id])
+}
+
+// --- SECCIÓN 4: HABILIDADES ---
+
+model EstudianteHabilidad {
+  id              String    @id @default(cuid())
+  estudianteId    String
+  habilidad_id    String
+  nivel           NivelDominio
+  anios_experiencia Int?
+  certificado     Boolean   @default(false)
+  es_destacada    Boolean   @default(false)
+  estudiante      Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  habilidad       CatalogoHabilidad @relation(fields: [habilidad_id], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  @@unique([estudianteId, habilidad_id])
+  @@index([estudianteId])
+  @@index([habilidad_id])
+}
+
+// --- SECCIÓN 5: PROYECTOS ---
+
+model Proyecto {
+  id                String    @id @default(cuid())
+  estudianteId      String
+  titulo            String
+  descripcion       String    @db.Text
+  tipo              TipoProyecto
+  fecha_inicio      DateTime
+  fecha_fin         DateTime?
+  estado            EstadoProyecto
+  url_repositorio   String?
+  url_demo          String?
+  url_documentacion String?
+  contexto          ContextoProyecto?
+  resultado         String?   @db.Text
+  imagen_principal  String?
+  imagenes          String[] // Simplificado
+  colaboradores     Json[]   // Simplificado
+  estudiante        Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  tecnologias       ProyectoTecnologia[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  @@index([estudianteId])
+  @@index([tipo])
+}
+
+model ProyectoTecnologia {
+
+  id            String    @id @default(cuid())
+  proyecto_id   String
+  tecnologia_id String
+  rol           String?
+  proyecto      Proyecto @relation(fields: [proyecto_id], references: [id], onDelete: Cascade)
+  tecnologia    CatalogoTecnologia @relation(fields: [tecnologia_id], references: [id])
+  @@unique([proyecto_id, tecnologia_id])
+  @@index([proyecto_id])
+  @@index([tecnologia_id])
+}
+
+// --- SECCIÓN 6: CERTIFICACIONES ---
+
+model Certificacion {
+  id                  String    @id @default(cuid())
+  estudianteId        String
+  titulo              String
+  emisor              String
+  tipo                TipoCertificacion
+  fecha_emision       DateTime
+  fecha_expiracion    DateTime?
+  credencial_id       String?
+  url_verificacion    String?
+  estudiante          Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  habilidades         CertificacionHabilidad[]
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  @@index([estudianteId])
+}
+
+model CertificacionHabilidad {
+  id                String    @id @default(cuid())
+  certificacion_id  String
+  habilidad_id      String
+  certificacion     Certificacion @relation(fields: [certificacion_id], references: [id], onDelete: Cascade)
+  habilidad         CatalogoHabilidad @relation(fields: [habilidad_id], references: [id])
+  @@unique([certificacion_id, habilidad_id])
+  @@index([certificacion_id])
+  @@index([habilidad_id])
+}
+
+// --- SECCIÓN 7: IDIOMAS ---
+
+model EstudianteIdioma {
+  id              String    @id @default(cuid())
+  estudianteId    String
+  idioma_id       String
+  nivel_oral      NivelIdioma
+  nivel_escrito   NivelIdioma
+  nivel_lectura   NivelIdioma
+  certificacion   String?
+  estudiante      Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  idioma          CatalogoIdioma @relation(fields: [idioma_id], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  @@unique([estudianteId, idioma_id])
+  @@index([estudianteId])
+}
+
+// --- SECCIÓN 8: DOCUMENTOS ---
+
+model DocumentoEstudiante {
+  id              String    @id @default(cuid())
+  estudianteId    String
+  nombre          String
+  tipo            TipoDocumento
+  categoria       String?
+  url             String
+  formato         String
+  tamanio_kb      Int
+  descripcion     String?   @db.Text
+  es_publico      Boolean   @default(false)
+  es_principal    Boolean   @default(false)
+  estudiante      Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  @@index([estudianteId])
+  @@index([tipo])
+}
+
+// --- SECCIÓN 9: PREMIOS Y RECONOCIMIENTOS ---
+model Reconocimiento {
+  id              String    @id @default(cuid())
+  estudianteId    String
+  titulo          String
+  tipo            TipoReconocimiento
+  otorgante       String
+  fecha           DateTime
+  descripcion     String?   @db.Text
+  url_evidencia   String?
+  estudiante      Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  @@index([estudianteId])
+}
+
+// --- SECCIÓN 10: EMPRESA ---
+
+model PerfilEmpresa {
+  id                    String    @id @default(cuid())
+  empresaId             String    @unique
+  sector_id             String?
+  tamanio               TamanioEmpresa
+  anio_fundacion        Int?
+  tipo                  TipoEmpresa
+  cultura_descripcion   String?   @db.Text
+  mision                String?   @db.Text
+  vision                String?   @db.Text
+  linkedin_url          String?
+  valores               Json[] // Simplificado
+  galeria               String[] // Simplificado
+  empresa               Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  sector                CatalogoSector? @relation(fields: [sector_id], references: [id])
+  beneficios            BeneficioEmpresa[]
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  @@index([empresaId])
+  @@index([sector_id])
+}
+
+model BeneficioEmpresa {
+  id                  String    @id @default(cuid())
+  perfil_empresa_id   String
+  beneficio_id        String
+  descripcion         String?
+  perfil_empresa      PerfilEmpresa @relation(fields: [perfil_empresa_id], references: [id], onDelete: Cascade)
+  beneficio           CatalogoBeneficio @relation(fields: [beneficio_id], references: [id])
+  @@unique([perfil_empresa_id, beneficio_id])
+  @@index([perfil_empresa_id])
+}
+
+// --- SECCIÓN 11: REFERENCIAS PROFESIONALES ---
+model ReferenciaProfesional {
+  id                String    @id @default(cuid())
+  estudianteId      String
+  nombre            String
+  cargo             String
+  empresa           String
+  relacion          TipoRelacion
+  email             String?
+  telefono          String?
+  linkedin_url      String?
+  estado            EstadoReferencia @default(PENDIENTE)
+  puede_contactar   Boolean   @default(false)
+  testimonio        String?   @db.Text
+  estudiante        Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  @@index([estudianteId])
+}
+
+// --- SECCIÓN 12: CATÁLOGOS MAESTROS ---
+
+model CatalogoCarrera {
+  id              String    @id @default(cuid())
+  nombre          String    @unique
+  escuela         String
+  area            String
+  educaciones     EducacionAcademica[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model CatalogoHabilidad {
+  id              String    @id @default(cuid())
+  nombre          String    @unique
+  categoria       CategoriaHabilidad
+  tipo            TipoHabilidad
+  activo          Boolean   @default(true)
+  estudiante_habilidades EstudianteHabilidad[]
+  certificacion_habilidades CertificacionHabilidad[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  @@index([categoria])
+  @@index([tipo])
+}
+
+model CatalogoTecnologia {
+  id              String    @id @default(cuid())
+  nombre          String    @unique
+  categoria       CategoriaTecnologia
+  logo_url        String?
+  activo          Boolean   @default(true)
+  experiencia_tecnologias ExperienciaTecnologia[]
+  proyecto_tecnologias ProyectoTecnologia[]
+  createdAt       DateTime  @default(now())
+  @@index([categoria])
+}
+
+model CatalogoSector {
+  id              String    @id @default(cuid())
+  nombre          String    @unique
+  activo          Boolean   @default(true)
+  experiencias    ExperienciaLaboral[]
+  perfiles_empresa PerfilEmpresa[]
+  createdAt       DateTime  @default(now())
+}
+
+model CatalogoUbicacion {
+  id              String    @id @default(cuid())
+  ciudad          String
+  region          String
+  pais            String    @default("Perú")
+  activo          Boolean   @default(true)
+  experiencias    ExperienciaLaboral[]
+  educaciones     EducacionAcademica[]
+  createdAt       DateTime  @default(now())
+}
+
+model CatalogoIdioma {
+  id              String    @id @default(cuid())
+  nombre          String    @unique
+  codigo_iso      String    @unique
+  activo          Boolean   @default(true)
+  estudiante_idiomas EstudianteIdioma[]
+  createdAt       DateTime  @default(now())
+}
+
+model CatalogoBeneficio {
+  id              String    @id @default(cuid())
+  nombre          String    @unique
+  categoria       CategoriaBeneficio
+  icono           String?
+  activo          Boolean   @default(true)
+  empresa_beneficios BeneficioEmpresa[]
+  createdAt       DateTime  @default(now())
+  @@index([categoria])
+}
+
+// --- SECCIÓN 13: LEADS DE LANDING PAGE ---
+
+model LeadEstudiante {
+  id              String    @id @default(cuid())
+  name            String
+  email           String
+  phone           String?
+  studentId       String?
+  career          String
+  enrollmentYear  Int
+  message         String?   @db.Text
+  timestamp       DateTime  @default(now())
+  processed       Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([email])
+  @@index([processed])
+  @@index([createdAt])
+  @@map("lead_estudiantes")
+}
+
+model LeadEmpresa {
+  id              String    @id @default(cuid())
+  name            String
+  email           String
+  phone           String?
+  companyName     String
+  position        String
+  lookingFor      String
+  message         String?   @db.Text
+  timestamp       DateTime  @default(now())
+  processed       Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([email])
+  @@index([processed])
+  @@index([createdAt])
+  @@map("lead_empresas")
+}
