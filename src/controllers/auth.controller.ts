@@ -109,7 +109,7 @@ export class AuthController {
   async refreshTokens(req: Request, res: Response) {
     try {
       const { refreshToken } = req.body;
-      
+
       if (!refreshToken) {
         return ApiResponseHandler.error(res, 'Refresh token requerido', 400);
       }
@@ -213,7 +213,7 @@ export class AuthController {
   async checkAuth(req: Request, res: Response) {
     try {
       const isAuthenticated = !!req.user;
-      
+
       return ApiResponseHandler.success(res, {
         authenticated: isAuthenticated,
         user: req.user || null
@@ -229,7 +229,7 @@ export class AuthController {
     const cookieOptions = {
       httpOnly: true,
       secure: authConfig.session.secure,
-      sameSite: authConfig.session.sameSite,
+      sameSite: authConfig.session.sameSite as boolean | "none" | "lax" | "strict" | undefined,
       domain: undefined, // Se puede configurar para subdominios
       path: '/'
     };
@@ -251,7 +251,7 @@ export class AuthController {
     const cookieOptions = {
       httpOnly: true,
       secure: authConfig.session.secure,
-      sameSite: authConfig.session.sameSite,
+      sameSite: authConfig.session.sameSite as boolean | "none" | "lax" | "strict" | undefined,
       path: '/'
     };
 
