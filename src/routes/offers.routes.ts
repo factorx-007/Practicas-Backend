@@ -11,29 +11,29 @@ const createOfferValidation = [
   body('titulo')
     .isLength({ min: 5, max: 200 })
     .withMessage('El título debe tener entre 5 y 200 caracteres'),
-  
+
   body('descripcion')
     .isLength({ min: 20, max: 2000 })
     .withMessage('La descripción debe tener entre 20 y 2000 caracteres'),
-  
+
   body('ubicacion')
     .isLength({ min: 2, max: 100 })
     .withMessage('La ubicación debe tener entre 2 y 100 caracteres'),
-  
+
   body('modalidad')
     .isIn(['TIEMPO_COMPLETO', 'MEDIO_TIEMPO', 'PRACTICA', 'FREELANCE', 'REMOTO', 'HIBRIDO', 'PRESENCIAL'])
     .withMessage('Modalidad de trabajo inválida'),
-  
+
   body('salarioMin')
     .optional()
     .isFloat({ min: 0 })
     .withMessage('El salario mínimo debe ser un número positivo'),
-  
+
   body('salarioMax')
     .optional()
     .isFloat({ min: 0 })
     .withMessage('El salario máximo debe ser un número positivo'),
-  
+
   body('fechaLimite')
     .isISO8601()
     .withMessage('La fecha límite debe ser una fecha válida')
@@ -43,22 +43,22 @@ const createOfferValidation = [
       }
       return true;
     }),
-  
+
   body('preguntas')
     .optional()
     .isArray()
     .withMessage('Las preguntas deben ser un array'),
-  
+
   body('preguntas.*.pregunta')
     .if(body('preguntas').exists())
     .isLength({ min: 10, max: 500 })
     .withMessage('Cada pregunta debe tener entre 10 y 500 caracteres'),
-  
+
   body('preguntas.*.tipo')
     .if(body('preguntas').exists())
     .isIn(['TEXT', 'NUMBER', 'SELECT', 'TEXTAREA', 'EMAIL', 'URL'])
     .withMessage('Tipo de pregunta inválido'),
-  
+
   body('preguntas.*.obligatoria')
     .if(body('preguntas').exists())
     .isBoolean()
@@ -70,37 +70,37 @@ const updateOfferValidation = [
   param('id')
     .isLength({ min: 1 })
     .withMessage('ID de oferta requerido'),
-  
+
   body('titulo')
     .optional()
     .isLength({ min: 5, max: 200 })
     .withMessage('El título debe tener entre 5 y 200 caracteres'),
-  
+
   body('descripcion')
     .optional()
     .isLength({ min: 20, max: 2000 })
     .withMessage('La descripción debe tener entre 20 y 2000 caracteres'),
-  
+
   body('ubicacion')
     .optional()
     .isLength({ min: 2, max: 100 })
     .withMessage('La ubicación debe tener entre 2 y 100 caracteres'),
-  
+
   body('modalidad')
     .optional()
     .isIn(['TIEMPO_COMPLETO', 'MEDIO_TIEMPO', 'PRACTICA', 'FREELANCE', 'REMOTO', 'HIBRIDO', 'PRESENCIAL'])
     .withMessage('Modalidad de trabajo inválida'),
-  
+
   body('salarioMin')
     .optional()
     .isFloat({ min: 0 })
     .withMessage('El salario mínimo debe ser un número positivo'),
-  
+
   body('salarioMax')
     .optional()
     .isFloat({ min: 0 })
     .withMessage('El salario máximo debe ser un número positivo'),
-  
+
   body('fechaLimite')
     .optional()
     .isISO8601()
@@ -112,12 +112,12 @@ const applyToOfferValidation = [
   param('id')
     .isLength({ min: 1 })
     .withMessage('ID de oferta requerido'),
-  
+
   body('mensaje')
     .optional()
     .isLength({ max: 1000 })
     .withMessage('El mensaje no puede exceder 1000 caracteres'),
-  
+
   body('cvUrl')
     .optional()
     .isURL()
@@ -129,11 +129,11 @@ const updateApplicationStatusValidation = [
   param('applicationId')
     .isLength({ min: 1 })
     .withMessage('ID de postulación requerido'),
-  
+
   body('status')
     .isIn(['PENDIENTE', 'EN_REVISION', 'ACEPTADA', 'RECHAZADA', 'ENTREVISTA'])
     .withMessage('Estado de postulación inválido'),
-  
+
   body('notasEntrevistador')
     .optional()
     .isLength({ max: 1000 })
@@ -146,17 +146,17 @@ const searchValidation = [
     .optional()
     .isInt({ min: 1 })
     .withMessage('La página debe ser un número entero mayor a 0'),
-  
+
   query('limit')
     .optional()
     .isInt({ min: 1, max: 50 })
     .withMessage('El límite debe ser un número entre 1 y 50'),
-  
+
   query('salarioMin')
     .optional()
     .isFloat({ min: 0 })
     .withMessage('El salario mínimo debe ser un número positivo'),
-  
+
   query('salarioMax')
     .optional()
     .isFloat({ min: 0 })
@@ -594,7 +594,7 @@ router.post('/',
 );
 
 // Actualizar oferta (solo empresas propietarias)
-router.put('/:id', 
+router.put('/:id',
   authenticate,
   authorize(UserRole.EMPRESA),
   updateOfferValidation,
@@ -602,7 +602,7 @@ router.put('/:id',
 );
 
 // Eliminar oferta (solo empresas propietarias)
-router.delete('/:id', 
+router.delete('/:id',
   authenticate,
   authorize(UserRole.EMPRESA),
   idValidation,
@@ -610,11 +610,18 @@ router.delete('/:id',
 );
 
 // Obtener ofertas de la empresa autenticada
-router.get('/company/my-offers', 
+router.get('/company/my-offers',
   authenticate,
   authorize(UserRole.EMPRESA),
   searchValidation,
   offersController.getCompanyOffers.bind(offersController)
+);
+
+// Obtener estadísticas de la empresa
+router.get('/company/stats',
+  authenticate,
+  authorize(UserRole.EMPRESA),
+  offersController.getCompanyStats.bind(offersController)
 );
 
 // ===== RUTAS DE POSTULACIONES =====
@@ -730,7 +737,7 @@ router.post('/:id/apply',
 );
 
 // Obtener postulaciones de una oferta (solo empresa propietaria)
-router.get('/:id/applications', 
+router.get('/:id/applications',
   authenticate,
   authorize(UserRole.EMPRESA),
   idValidation,
@@ -853,7 +860,7 @@ router.get('/student/my-applications',
 );
 
 // Actualizar estado de postulación (solo empresas)
-router.patch('/applications/:applicationId/status', 
+router.patch('/applications/:applicationId/status',
   authenticate,
   authorize(UserRole.EMPRESA),
   updateApplicationStatusValidation,
@@ -863,7 +870,7 @@ router.patch('/applications/:applicationId/status',
 // ===== RUTAS DE ADMINISTRACIÓN =====
 
 // Obtener todas las ofertas (solo admin)
-router.get('/admin/all', 
+router.get('/admin/all',
   authenticate,
   authorize(UserRole.ADMIN),
   searchValidation,

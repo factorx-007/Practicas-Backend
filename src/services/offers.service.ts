@@ -2,11 +2,11 @@ import prisma from '../config/database';
 import logger from '../utils/logger';
 import { OfferSearchFilters, PaginatedResponse } from '../types/common.types';
 import { getNotificationsSocketInstance } from '../socket/notifications.socket';
-import { 
-  CreateOfferData, 
-  UpdateOfferData, 
+import {
+  CreateOfferData,
+  UpdateOfferData,
   OfferWithDetails,
-  ApplicationWithDetails 
+  ApplicationWithDetails
 } from '../types/offers.types';
 import { NotificationsService } from './notifications.service';
 import { NotificationType } from '../types/common.types';
@@ -226,7 +226,7 @@ export class OffersService {
   ): Promise<any> {
     try {
       const skip = (page - 1) * limit;
-      
+
       const whereClause: any = {
         estado: 'PUBLICADA'
       };
@@ -716,9 +716,9 @@ export class OffersService {
   }
 
   async getStudentApplications(
-    userId: string, 
-    page: number = 1, 
-    limit: number = 10, 
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
     status?: string
   ): Promise<any> {
     try {
@@ -797,6 +797,52 @@ export class OffersService {
       };
     } catch (error) {
       logger.error('Error obteniendo postulaciones del estudiante:', error);
+      throw error;
+    }
+  }
+
+  async getCompanyStats(userId: string): Promise<any> {
+    try {
+      const company = await prisma.empresa.findUnique({
+        where: { usuarioId: userId }
+      });
+
+      if (!company) {
+        throw new Error('COMPANY_PROFILE_NOT_FOUND');
+      }
+
+      const [activeOffers, totalApplications, interviewedCandidates] = await Promise.all([
+        prisma.oferta.count({
+          where: {
+            empresaId: company.id,
+            estado: 'PUBLICADA'
+          }
+        }),
+        prisma.postulacion.count({
+          where: {
+            oferta: {
+              empresaId: company.id
+            }
+          }
+        }),
+        prisma.postulacion.count({
+          where: {
+            oferta: {
+              empresaId: company.id
+            },
+            estado: 'ENTREVISTA'
+          }
+        })
+      ]);
+
+      return {
+        ofertas_activas: activeOffers,
+        postulaciones_recibidas: totalApplications,
+        candidatos_entrevistados: interviewedCandidates,
+        rating_empresa: 4.5 // Placeholder until rating system is implemented
+      };
+    } catch (error) {
+      logger.error('Error getting company stats:', error);
       throw error;
     }
   }

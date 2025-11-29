@@ -26,16 +26,16 @@ export class OffersController {
 
       const offer = await this.offersService.createOffer(req.user.id, req.body as any);
 
-      logger.info('Oferta creada exitosamente', { 
-        offerId: offer.id, 
+      logger.info('Oferta creada exitosamente', {
+        offerId: offer.id,
         userId: req.user.id,
-        title: offer.titulo 
+        title: offer.titulo
       });
 
       ApiResponseHandler.created(res, offer, 'Oferta creada exitosamente');
     } catch (error: any) {
       logger.error('Error creando oferta:', error);
-      
+
       if (error.message === 'COMPANY_PROFILE_NOT_FOUND') {
         return ApiResponseHandler.error(res, 'Perfil de empresa no encontrado');
       }
@@ -79,19 +79,19 @@ export class OffersController {
       const { id } = req.params;
       const updatedOffer = await this.offersService.updateOffer(id, req.user.id, req.body);
 
-      logger.info('Oferta actualizada exitosamente', { 
-        offerId: id, 
-        userId: req.user.id 
+      logger.info('Oferta actualizada exitosamente', {
+        offerId: id,
+        userId: req.user.id
       });
 
       ApiResponseHandler.success(res, updatedOffer, 'Oferta actualizada exitosamente');
     } catch (error: any) {
       logger.error('Error actualizando oferta:', error);
-      
+
       if (error.message === 'OFFER_NOT_FOUND') {
         return ApiResponseHandler.notFound(res, 'Oferta no encontrada');
       }
-      
+
       if (error.message === 'UNAUTHORIZED_OFFER_UPDATE') {
         return ApiResponseHandler.forbidden(res, 'No tienes permisos para actualizar esta oferta');
       }
@@ -110,19 +110,19 @@ export class OffersController {
       const { id } = req.params;
       await this.offersService.deleteOffer(id, req.user.id);
 
-      logger.info('Oferta eliminada exitosamente', { 
-        offerId: id, 
-        userId: req.user.id 
+      logger.info('Oferta eliminada exitosamente', {
+        offerId: id,
+        userId: req.user.id
       });
 
       ApiResponseHandler.success(res, null, 'Oferta eliminada exitosamente');
     } catch (error: any) {
       logger.error('Error eliminando oferta:', error);
-      
+
       if (error.message === 'OFFER_NOT_FOUND') {
         return ApiResponseHandler.notFound(res, 'Oferta no encontrada');
       }
-      
+
       if (error.message === 'UNAUTHORIZED_OFFER_DELETE') {
         return ApiResponseHandler.forbidden(res, 'No tienes permisos para eliminar esta oferta');
       }
@@ -136,7 +136,7 @@ export class OffersController {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
-      
+
       const filters = {
         search: req.query.search as string,
         ubicacion: req.query.ubicacion as string,
@@ -176,29 +176,29 @@ export class OffersController {
       const { mensaje, cvUrl } = req.body;
 
       const application = await this.offersService.applyToOffer(
-        id, 
-        req.user.id, 
+        id,
+        req.user.id,
         cvUrl
       );
 
-      logger.info('Postulación creada exitosamente', { 
-        offerId: id, 
+      logger.info('Postulación creada exitosamente', {
+        offerId: id,
         userId: req.user.id,
-        applicationId: application.id 
+        applicationId: application.id
       });
 
       ApiResponseHandler.created(res, application, 'Postulación enviada exitosamente');
     } catch (error: any) {
       logger.error('Error aplicando a oferta:', error);
-      
+
       if (error.message === 'STUDENT_PROFILE_NOT_FOUND') {
         return ApiResponseHandler.error(res, 'Perfil de estudiante no encontrado');
       }
-      
+
       if (error.message === 'OFFER_NOT_FOUND') {
         return ApiResponseHandler.notFound(res, 'Oferta no encontrada');
       }
-      
+
       if (error.message === 'ALREADY_APPLIED') {
         return ApiResponseHandler.conflict(res, 'Ya has aplicado a esta oferta');
       }
@@ -225,11 +225,11 @@ export class OffersController {
       ApiResponseHandler.success(res, result, 'Postulaciones obtenidas exitosamente');
     } catch (error: any) {
       logger.error('Error obteniendo postulaciones:', error);
-      
+
       if (error.message === 'OFFER_NOT_FOUND') {
         return ApiResponseHandler.notFound(res, 'Oferta no encontrada');
       }
-      
+
       if (error.message === 'UNAUTHORIZED_ACCESS') {
         return ApiResponseHandler.forbidden(res, 'No tienes permisos para ver estas postulaciones');
       }
@@ -250,8 +250,8 @@ export class OffersController {
       const status = req.query.estado as string;
 
       const result = await this.offersService.getStudentApplications(
-        req.user.id, 
-        page, 
+        req.user.id,
+        page,
         limit,
         status
       );
@@ -259,7 +259,7 @@ export class OffersController {
       ApiResponseHandler.success(res, result, 'Tus postulaciones obtenidas exitosamente');
     } catch (error: any) {
       logger.error('Error obteniendo postulaciones del estudiante:', error);
-      
+
       if (error.message === 'STUDENT_PROFILE_NOT_FOUND') {
         return ApiResponseHandler.error(res, 'Perfil de estudiante no encontrado');
       }
@@ -284,29 +284,29 @@ export class OffersController {
       const { status, notasEntrevistador } = req.body;
 
       const updatedApplication = await this.offersService.updateApplicationStatus(
-        applicationId, 
-        req.user.id, 
+        applicationId,
+        req.user.id,
         status
       );
 
-      logger.info('Estado de postulación actualizado', { 
-        applicationId, 
-        newStatus: status, 
-        userId: req.user.id 
+      logger.info('Estado de postulación actualizado', {
+        applicationId,
+        newStatus: status,
+        userId: req.user.id
       });
 
       ApiResponseHandler.success(res, updatedApplication, 'Estado de postulación actualizado exitosamente');
     } catch (error: any) {
       logger.error('Error actualizando estado de postulación:', error);
-      
+
       if (error.message === 'APPLICATION_NOT_FOUND') {
         return ApiResponseHandler.notFound(res, 'Postulación no encontrada');
       }
-      
+
       if (error.message === 'UNAUTHORIZED_UPDATE_APPLICATION') {
         return ApiResponseHandler.forbidden(res, 'No tienes permisos para actualizar esta postulación');
       }
-      
+
       if (error.message === 'INVALID_STATUS') {
         return ApiResponseHandler.error(res, 'Estado de postulación inválido');
       }
@@ -327,15 +327,15 @@ export class OffersController {
       const status = req.query.status as string;
 
       const result = await this.offersService.getMyOffers(
-        req.user.id, 
-        page, 
+        req.user.id,
+        page,
         limit
       );
 
       ApiResponseHandler.success(res, result, 'Ofertas de la empresa obtenidas exitosamente');
     } catch (error: any) {
       logger.error('Error obteniendo ofertas de la empresa:', error);
-      
+
       if (error.message === 'COMPANY_PROFILE_NOT_FOUND') {
         return ApiResponseHandler.error(res, 'Perfil de empresa no encontrado');
       }
@@ -349,10 +349,30 @@ export class OffersController {
     try {
       const { id } = req.params;
       await this.offersService.incrementOfferViews(id);
-      
+
       ApiResponseHandler.success(res, null, 'Vista registrada');
     } catch (error) {
       logger.error('Error incrementando vistas:', error);
+      next(error);
+    }
+  }
+
+  // Obtener estadísticas de la empresa
+  async getCompanyStats(req: any, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        return ApiResponseHandler.unauthorized(res, 'Usuario no autenticado');
+      }
+
+      const stats = await this.offersService.getCompanyStats(req.user.id);
+      ApiResponseHandler.success(res, stats, 'Estadísticas obtenidas exitosamente');
+    } catch (error: any) {
+      logger.error('Error obteniendo estadísticas:', error);
+
+      if (error.message === 'COMPANY_PROFILE_NOT_FOUND') {
+        return ApiResponseHandler.error(res, 'Perfil de empresa no encontrado');
+      }
+
       next(error);
     }
   }
