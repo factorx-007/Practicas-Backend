@@ -8,6 +8,18 @@ import { CreateMensajeDTO, SocketEvents, UsuarioEnLinea, UsuarioEscribiendo } fr
 const usuariosEnLinea = new Map<string, UsuarioEnLinea>();
 const usuariosEscribiendo = new Map<string, UsuarioEscribiendo>();
 
+// Función para parsear cookies de un string
+const parseCookies = (cookieString: string | undefined): Record<string, string> => {
+  if (!cookieString) {
+    return {};
+  }
+  return cookieString.split(';').reduce((res, c) => {
+    const [key, ...val] = c.trim().split('=');
+    res[key] = val.join('=');
+    return res;
+  }, {} as Record<string, string>);
+};
+
 export class ChatSocketHandler {
   private io: Server;
 
@@ -35,7 +47,13 @@ export class ChatSocketHandler {
 
   private async authenticateUser(socket: Socket): Promise<void> {
     try {
-      const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+      const cookies = parseCookies(socket.handshake.headers.cookie);
+      let token = cookies.accessToken;
+
+      if (!token) {
+        token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+      }
+
 
       if (!token) {
         logger.warn(`Conexión rechazada - No token: ${socket.id}`);
