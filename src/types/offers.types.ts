@@ -1,6 +1,5 @@
 import { Oferta, Postulacion, PreguntaOferta, RespuestaPostulacion } from '@prisma/client';
 
-// Tipos para crear ofertas
 export interface CreateOfferData {
   titulo: string;
   descripcion: string;
@@ -9,9 +8,10 @@ export interface CreateOfferData {
   tipoEmpleo: string;
   nivelEducacion: string;
   experiencia: string;
-  salarioMin?: number;
-  salarioMax?: number;
   fechaLimite: Date;
+  requisitos: string[];
+  requiereCV: boolean;
+  requiereCarta: boolean;
   preguntas?: CreateQuestionData[];
 }
 
@@ -31,8 +31,6 @@ export interface UpdateOfferData {
   tipoEmpleo?: string;
   nivelEducacion?: string;
   experiencia?: string;
-  salarioMin?: number;
-  salarioMax?: number;
   fechaLimite?: Date;
   activo?: boolean;
 }

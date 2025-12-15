@@ -217,10 +217,13 @@ export class OffersController {
       const { id } = req.params;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
-      const status = req.query.status as string;
 
-      // TODO: Implementar getOfferApplications
-      const result = { data: [], pagination: { currentPage: page, totalItems: 0, totalPages: 0, itemsPerPage: limit, hasNextPage: false, hasPrevPage: false } };
+      const result = await this.offersService.getOfferApplications(
+        id,
+        req.user.id,
+        page,
+        limit
+      );
 
       ApiResponseHandler.success(res, result, 'Postulaciones obtenidas exitosamente');
     } catch (error: any) {
@@ -230,8 +233,38 @@ export class OffersController {
         return ApiResponseHandler.notFound(res, 'Oferta no encontrada');
       }
 
-      if (error.message === 'UNAUTHORIZED_ACCESS') {
+      if (error.message === 'UNAUTHORIZED_VIEW_APPLICATIONS') {
         return ApiResponseHandler.forbidden(res, 'No tienes permisos para ver estas postulaciones');
+      }
+
+      next(error);
+    }
+  }
+
+  // Obtener todas las postulaciones de la empresa (Candidatos)
+  async getAllCompanyApplications(req: any, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        return ApiResponseHandler.unauthorized(res, 'Usuario no autenticado');
+      }
+
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const status = req.query.status as string;
+
+      const result = await this.offersService.getAllCompanyApplications(
+        req.user.id,
+        page,
+        limit,
+        status
+      );
+
+      ApiResponseHandler.success(res, result, 'Candidatos obtenidos exitosamente');
+    } catch (error: any) {
+      logger.error('Error obteniendo candidatos:', error);
+
+      if (error.message === 'COMPANY_PROFILE_NOT_FOUND') {
+        return ApiResponseHandler.error(res, 'Perfil de empresa no encontrado');
       }
 
       next(error);
@@ -281,7 +314,7 @@ export class OffersController {
       }
 
       const { applicationId } = req.params;
-      const { status, notasEntrevistador } = req.body;
+      const { status } = req.body;
 
       const updatedApplication = await this.offersService.updateApplicationStatus(
         applicationId,

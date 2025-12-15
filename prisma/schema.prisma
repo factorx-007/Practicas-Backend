@@ -142,8 +142,7 @@ model Oferta {
   estado        EstadoOferta @default(PUBLICADA)
   ubicacion     String?
   modalidad     ModalidadTrabajo @default(TIEMPO_COMPLETO)
-  salario_min   Float?
-  salario_max   Float?
+
   moneda        String   @default("PEN")
   tipoEmpleo    String?
   nivelEducacion String?

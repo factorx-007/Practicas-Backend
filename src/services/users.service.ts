@@ -280,7 +280,7 @@ export class UsersService {
           updatePayload.experiencias = experienciasToUpdate;
         }
       }
-      
+
       if (educacion) {
         const createEducacion = educacion.create || [];
         const updateEducacion = educacion.update || [];
@@ -418,7 +418,7 @@ export class UsersService {
           try {
             // Verificar si el idioma tiene datos de idioma anidados
             const idiomaData = (idioma as any).idioma;
-            
+
             if (idiomaData && idiomaData.nombre && idiomaData.codigo_iso) {
               // Buscar si existe un idioma con ese nombre o código ISO
               let catalogoIdioma = await prisma.catalogoIdioma.findFirst({
@@ -429,7 +429,7 @@ export class UsersService {
                   ]
                 }
               });
-              
+
               // Si no existe, crearlo
               if (!catalogoIdioma) {
                 catalogoIdioma = await prisma.catalogoIdioma.create({
@@ -439,7 +439,7 @@ export class UsersService {
                   }
                 });
               }
-              
+
               processedCreateIdiomas.push({
                 idioma: {
                   connect: { id: catalogoIdioma.id }
@@ -518,7 +518,7 @@ export class UsersService {
             });
           }
         }
-        
+
         const processedUpdateHabilidades = habilidadesNuevas.update?.map((hab) => ({
           where: hab.where,
           data: {
@@ -1120,7 +1120,7 @@ export class UsersService {
       }
 
       const currentGallery = company.perfilEmpresa.galeria || [];
-      
+
       const updatedCompany = await prisma.empresa.update({
         where: { usuarioId: userId },
         data: {
@@ -1158,7 +1158,7 @@ export class UsersService {
 
       const currentGallery = company.perfilEmpresa.galeria || [];
       const newGallery = currentGallery.filter(url => url !== imageUrl);
-      
+
       const updatedCompany = await prisma.empresa.update({
         where: { usuarioId: userId },
         data: {
@@ -1254,7 +1254,7 @@ export class UsersService {
     try {
       const company = await prisma.empresa.findUnique({
         where: { usuarioId: userId },
-        include: { 
+        include: {
           perfilEmpresa: {
             include: {
               beneficios: {

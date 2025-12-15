@@ -10,6 +10,7 @@ import {
 } from '../types/offers.types';
 import { NotificationsService } from './notifications.service';
 import { NotificationType } from '../types/common.types';
+import { TipoPregunta } from '@prisma/client';
 
 const notificationsService = new NotificationsService();
 
@@ -30,11 +31,23 @@ export class OffersService {
           descripcion: offerData.descripcion,
           ubicacion: offerData.ubicacion,
           modalidad: offerData.modalidad as any,
-          salario_min: offerData.salarioMin,
-          salario_max: offerData.salarioMax,
+          tipoEmpleo: offerData.tipoEmpleo,
+          nivelEducacion: offerData.nivelEducacion,
+          experiencia: offerData.experiencia,
           fecha_limite: offerData.fechaLimite,
+          requisitos: offerData.requisitos,
+          requiereCV: offerData.requiereCV,
+          requiereCarta: offerData.requiereCarta,
           empresaId: company.id,
-          estado: 'PUBLICADA' as any
+          estado: 'PUBLICADA' as any,
+          preguntas: {
+            create: offerData.preguntas?.map(p => ({
+              pregunta: p.pregunta,
+              tipo: p.tipo as any,
+              requerida: p.obligatoria,
+              opciones: p.opciones
+            }))
+          }
         },
         include: {
           empresa: {
@@ -67,6 +80,7 @@ export class OffersService {
               }
             }
           },
+          preguntas: true,
           _count: {
             select: { postulaciones: true }
           }
@@ -116,6 +130,7 @@ export class OffersService {
               }
             }
           },
+          preguntas: true,
           _count: {
             select: { postulaciones: true }
           }
@@ -248,16 +263,6 @@ export class OffersService {
         whereClause.experiencia = filters.experiencia;
       }
 
-      if (filters.salarioMin || filters.salarioMax) {
-        whereClause.salario = {};
-        if (filters.salarioMin) {
-          whereClause.salario.gte = filters.salarioMin;
-        }
-        if (filters.salarioMax) {
-          whereClause.salario.lte = filters.salarioMax;
-        }
-      }
-
       if (filters.ubicacion) {
         whereClause.ubicacion = { contains: filters.ubicacion, mode: 'insensitive' };
       }
@@ -300,7 +305,6 @@ export class OffersService {
         data: offers.map(offer => ({
           ...offer,
           fechaLimite: offer.fecha_limite ? new Date(offer.fecha_limite).toLocaleDateString('es-ES') : null,
-          rangoSalarial: `${offer.salario_min} - ${offer.salario_max}`,
           tipoEmpleo: offer.tipoEmpleo,
           nivelEducacion: offer.nivelEducacion,
           experiencia: offer.experiencia
@@ -561,7 +565,7 @@ export class OffersService {
         throw new Error('UNAUTHORIZED_UPDATE_APPLICATION');
       }
 
-      const validStatuses = ['EN_REVISION', 'ACEPTADO', 'RECHAZADO'];
+      const validStatuses = ['EN_REVISION', 'ACEPTADA', 'RECHAZADA', 'ENTREVISTA'];
       if (!validStatuses.includes(status)) {
         throw new Error('INVALID_STATUS');
       }
@@ -673,7 +677,6 @@ export class OffersService {
           numeroPostulaciones: offer._count.postulaciones,
           fechaCreacion: offer.createdAt,
           estado: offer.estado === 'PUBLICADA' ? 'ACTIVA' : offer.estado,
-          mostrarSalario: offer.salario_min !== null && offer.salario_max !== null,
           tipoEmpleo: offer.tipoEmpleo || 'TIEMPO_COMPLETO',
           empresa: {
             id: offer.empresa.id,
@@ -715,6 +718,83 @@ export class OffersService {
     }
   }
 
+  async getAllCompanyApplications(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+    status?: string
+  ): Promise<any> {
+    try {
+      const company = await prisma.empresa.findUnique({
+        where: { usuarioId: userId }
+      });
+
+      if (!company) {
+        throw new Error('COMPANY_PROFILE_NOT_FOUND');
+      }
+
+      const skip = (page - 1) * limit;
+
+      const where: any = {
+        oferta: {
+          empresaId: company.id
+        }
+      };
+
+      if (status) {
+        where.estado = status;
+      }
+
+      const [applications, totalCount] = await Promise.all([
+        prisma.postulacion.findMany({
+          where,
+          include: {
+            estudiante: {
+              include: {
+                usuario: {
+                  select: {
+                    id: true,
+                    nombre: true,
+                    apellido: true,
+                    email: true,
+                    avatar: true
+                  }
+                }
+              }
+            },
+            oferta: {
+              select: {
+                id: true,
+                titulo: true
+              }
+            }
+          },
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' }
+        }),
+        prisma.postulacion.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(totalCount / limit);
+
+      return {
+        data: applications,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: totalCount,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1
+        }
+      };
+    } catch (error) {
+      logger.error('Error obteniendo candidatos:', error);
+      throw error;
+    }
+  }
+
   async getStudentApplications(
     userId: string,
     page: number = 1,
@@ -732,7 +812,10 @@ export class OffersService {
 
       const skip = (page - 1) * limit;
 
-      const where: any = { estudianteId: student.id };
+      const where: any = {
+        estudianteId: student.id
+      };
+
       if (status) {
         where.estado = status;
       }
@@ -769,23 +852,7 @@ export class OffersService {
       const totalPages = Math.ceil(totalCount / limit);
 
       return {
-        data: applications.map(app => ({
-          id: app.id,
-          titulo: app.oferta.titulo,
-          descripcion: app.oferta.descripcion,
-          empresa: {
-            nombre_empresa: app.oferta.empresa.usuario.nombre + ' ' + app.oferta.empresa.usuario.apellido,
-            logo_url: app.oferta.empresa.usuario.avatar
-          },
-          fechaPostulacion: app.createdAt,
-          estado: app.estado,
-          cv_url: app.cv_url,
-          mensaje: app.mensaje,
-          oferta: {
-            ubicacion: app.oferta.ubicacion,
-            modalidad: app.oferta.modalidad
-          }
-        })),
+        data: applications,
         pagination: {
           currentPage: page,
           totalPages,
